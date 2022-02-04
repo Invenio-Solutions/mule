@@ -6,18 +6,25 @@
  */
 package org.mule.test.module.extension.proxy;
 
+import org.mule.runtime.core.api.util.IOUtils;
 import org.mule.runtime.http.api.HttpService;
 import org.mule.runtime.http.api.client.HttpClient;
 import org.mule.runtime.http.api.client.HttpClientConfiguration;
+import org.mule.runtime.http.api.domain.entity.ByteArrayHttpEntity;
 import org.mule.runtime.http.api.domain.message.request.HttpRequest;
 import org.mule.runtime.http.api.domain.message.response.HttpResponse;
+import org.mule.tck.junit4.rule.SystemProperty;
 import org.mule.test.module.extension.AbstractExtensionFunctionalTestCase;
 
 import javax.inject.Inject;
 
+import org.junit.Rule;
 import org.junit.Test;
 
 public class ExtensionProxyTestCase extends AbstractExtensionFunctionalTestCase {
+
+  @Rule
+  public SystemProperty configNameProperty = new SystemProperty("configName", "petstore");
 
 //  @Inject
 //  private ExtensionHttpProxy proxy;
@@ -29,17 +36,27 @@ public class ExtensionProxyTestCase extends AbstractExtensionFunctionalTestCase 
 
   @Override
   protected String getConfigFile() {
-    return "heisenberg-config.xml";
+    return "petstore.xml";
   }
 
   @Test
   public void proxy() throws Exception {
+    String requestBody = "{\n" +
+        "\t\"configRef\": \"petstore\",\n" +
+        "\t\"operation\": \"getPets\",\n" +
+        "\t\"parameters\": {\n" +
+        "\t\t\"ownerName\": \"john\"\n" +
+        "\t}\n" +
+        "}\n";
+
     HttpResponse response = httpClient.send(HttpRequest.builder()
-        .uri("http://0.0.0.0:8080/extension/heisenberg")
+        .uri("http://0.0.0.0:8080/extension/petstore")
         .method("POST")
+        .entity(new ByteArrayHttpEntity(requestBody.getBytes()))
         .build());
 
-    response.toString();
+    String responseBody = IOUtils.toString(response.getEntity().getContent());
+    System.out.println(responseBody);
   }
 
   @Override
