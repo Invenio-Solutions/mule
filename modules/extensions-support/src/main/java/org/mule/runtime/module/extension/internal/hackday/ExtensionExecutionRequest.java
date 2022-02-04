@@ -12,6 +12,7 @@ import java.util.Map;
 public class ExtensionExecutionRequest {
 
   private String configRef;
+  private ConfigurationDescriptor configurationDescriptor;
   private String operation;
   private Map<String, Object> parameters = new HashMap<>();
 
@@ -37,5 +38,13 @@ public class ExtensionExecutionRequest {
 
   public void setParameters(Map<String, Object> parameters) {
     this.parameters = parameters;
+  }
+
+  public ConfigurationDescriptor getConfigurationDescriptor() {
+    return configurationDescriptor;
+  }
+
+  public void setConfigurationDescriptor(ConfigurationDescriptor configurationDescriptor) {
+    this.configurationDescriptor = configurationDescriptor;
   }
 }

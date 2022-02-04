@@ -40,7 +40,7 @@ public class ExtensionProxyTestCase extends AbstractExtensionFunctionalTestCase 
   }
 
   @Test
-  public void proxy() throws Exception {
+  public void staticProxy() throws Exception {
     String requestBody = "{\n" +
         "\t\"configRef\": \"petstore\",\n" +
         "\t\"operation\": \"getPets\",\n" +

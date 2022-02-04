@@ -8,6 +8,7 @@ package org.mule.runtime.module.extension.internal.hackday;
 
 import static org.mule.runtime.api.metadata.DataType.fromType;
 import static org.mule.runtime.api.metadata.MediaType.APPLICATION_JSON;
+import static org.mule.runtime.core.api.util.StringUtils.isBlank;
 
 import org.mule.runtime.api.el.BindingContext;
 import org.mule.runtime.api.el.ExpressionLanguage;
@@ -22,7 +23,9 @@ import org.mule.runtime.api.metadata.MediaType;
 import org.mule.runtime.api.metadata.TypedValue;
 import org.mule.runtime.api.streaming.CursorProvider;
 import org.mule.runtime.api.streaming.bytes.CursorStreamProvider;
+import org.mule.runtime.core.api.extension.ExtensionManager;
 import org.mule.runtime.core.api.util.IOUtils;
+import org.mule.runtime.core.api.util.StringUtils;
 import org.mule.runtime.extension.api.client.DefaultOperationParameters;
 import org.mule.runtime.extension.api.client.DefaultOperationParametersBuilder;
 import org.mule.runtime.extension.api.client.ExtensionsClient;
@@ -38,6 +41,7 @@ import org.mule.runtime.http.api.server.HttpServerConfiguration;
 import org.mule.runtime.http.api.server.RequestHandlerManager;
 import org.mule.runtime.http.api.server.async.HttpResponseReadyCallback;
 import org.mule.runtime.http.api.server.async.ResponseStatusCallback;
+import org.mule.runtime.module.extension.internal.util.ReflectionCache;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -68,6 +72,9 @@ public class ExtensionHttpProxy implements Startable, Stoppable {
   };
 
   @Inject
+  private ExtensionManager extensionManager;
+
+  @Inject
   private HttpService httpService;
 
   @Inject
@@ -75,6 +82,9 @@ public class ExtensionHttpProxy implements Startable, Stoppable {
 
   @Inject
   private ExpressionLanguage expressionLanguage;
+
+  @Inject
+  private ReflectionCache reflectionCache;
 
   private HttpServer httpServer;
   private RequestHandlerManager requestHandlerManager;
@@ -99,8 +109,11 @@ public class ExtensionHttpProxy implements Startable, Stoppable {
   private void handleRequest(HttpRequest httpRequest, HttpResponseReadyCallback responseCallback) {
     try {
       ExtensionExecutionRequest extensionRequest = parseRequest(httpRequest);
+
+      String configRef = resolveConfigRef(extensionRequest);
+
       DefaultOperationParametersBuilder builder = DefaultOperationParameters.builder()
-          .configName(extensionRequest.getConfigRef());
+          .configName(configRef);
 
       extensionRequest.getParameters().forEach(builder::addParameter);
 
@@ -120,6 +133,14 @@ public class ExtensionHttpProxy implements Startable, Stoppable {
           .reasonPhrase(e.getMessage())
           .build(), NULL_STATUS_CALLBACK);
     }
+  }
+
+  private String resolveConfigRef(ExtensionExecutionRequest request) {
+    if (!isBlank(request.getConfigRef())) {
+      return request.getConfigRef();
+    }
+
+
   }
 
   private ResponseStatusCallback streamingCallback(TypedValue typedValue) {
