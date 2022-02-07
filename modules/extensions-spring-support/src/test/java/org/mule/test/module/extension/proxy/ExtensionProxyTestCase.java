@@ -6,6 +6,9 @@
  */
 package org.mule.test.module.extension.proxy;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
+
 import org.mule.runtime.core.api.util.IOUtils;
 import org.mule.runtime.http.api.HttpService;
 import org.mule.runtime.http.api.client.HttpClient;
@@ -32,28 +35,7 @@ public class ExtensionProxyTestCase extends AbstractExtensionFunctionalTestCase 
   }
 
   @Test
-  public void staticProxy() throws Exception {
-    String requestBody = "{\n" +
-        "\t\"extensionName\": \"petstore\",\n" +
-        "\t\"configRef\": \"myMagicConfig\",\n" +
-        "\t\"operation\": \"getPets\",\n" +
-        "\t\"parameters\": {\n" +
-        "\t\t\"ownerName\": \"john\"\n" +
-        "\t}\n" +
-        "}\n";
-
-    HttpResponse response = httpClient.send(HttpRequest.builder()
-        .uri("http://0.0.0.0:8080/extension/execution")
-        .method("POST")
-        .entity(new ByteArrayHttpEntity(requestBody.getBytes()))
-        .build());
-
-    String responseBody = IOUtils.toString(response.getEntity().getContent());
-    System.out.println(responseBody);
-  }
-
-  @Test
-  public void createConfig() throws Exception {
+  public void createConfigAndExecute() throws Exception {
     String requestBody = "{\n" +
         "\t\"extensionName\": \"petstore\",\n" +
         "\t\"componentName\": \"config\",\n" +
@@ -76,10 +58,32 @@ public class ExtensionProxyTestCase extends AbstractExtensionFunctionalTestCase 
         .entity(new ByteArrayHttpEntity(requestBody.getBytes()))
         .build());
 
+    assertThat(response.getStatusCode(), is(200));
     String responseBody = IOUtils.toString(response.getEntity().getContent());
     System.out.println(responseBody);
 
-    staticProxy();
+    invokeOperation();
+  }
+
+  private void invokeOperation() throws Exception {
+    String requestBody = "{\n" +
+        "\t\"extensionName\": \"petstore\",\n" +
+        "\t\"configRef\": \"myMagicConfig\",\n" +
+        "\t\"operation\": \"getPets\",\n" +
+        "\t\"parameters\": {\n" +
+        "\t\t\"ownerName\": \"john\"\n" +
+        "\t}\n" +
+        "}\n";
+
+    HttpResponse response = httpClient.send(HttpRequest.builder()
+        .uri("http://0.0.0.0:8080/extension/execution")
+        .method("POST")
+        .entity(new ByteArrayHttpEntity(requestBody.getBytes()))
+        .build());
+
+    assertThat(response.getStatusCode(), is(200));
+    String responseBody = IOUtils.toString(response.getEntity().getContent());
+    System.out.println(responseBody);
   }
 
   @Override
