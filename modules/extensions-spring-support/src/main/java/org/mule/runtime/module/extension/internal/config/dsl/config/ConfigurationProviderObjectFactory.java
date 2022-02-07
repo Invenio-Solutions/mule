@@ -45,7 +45,7 @@ import java.util.Optional;
  *
  * @since 4.0
  */
-class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<ConfigurationProvider>
+public class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<ConfigurationProvider>
     implements ObjectFactory<ConfigurationProvider> {
 
   private final ExtensionModel extensionModel;
@@ -58,7 +58,7 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
   private boolean requiresConnection = false;
   private LazyValue<String> configName = new LazyValue<>(this::getName);
 
-  ConfigurationProviderObjectFactory(ExtensionModel extensionModel,
+  public ConfigurationProviderObjectFactory(ExtensionModel extensionModel,
                                      ConfigurationModel configurationModel,
                                      MuleContext muleContext) {
     super(muleContext);

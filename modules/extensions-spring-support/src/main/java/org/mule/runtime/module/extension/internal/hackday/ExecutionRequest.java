@@ -9,10 +9,10 @@ package org.mule.runtime.module.extension.internal.hackday;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ExtensionExecutionRequest {
+public class ExecutionRequest {
 
+  private String extensionName;
   private String configRef;
-  private ConfigurationDescriptor configurationDescriptor;
   private String operation;
   private Map<String, Object> parameters = new HashMap<>();
 
@@ -40,11 +40,11 @@ public class ExtensionExecutionRequest {
     this.parameters = parameters;
   }
 
-  public ConfigurationDescriptor getConfigurationDescriptor() {
-    return configurationDescriptor;
+  public String getExtensionName() {
+    return extensionName;
   }
 
-  public void setConfigurationDescriptor(ConfigurationDescriptor configurationDescriptor) {
-    this.configurationDescriptor = configurationDescriptor;
+  public void setExtensionName(String extensionName) {
+    this.extensionName = extensionName;
   }
 }

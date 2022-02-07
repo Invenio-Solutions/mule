@@ -12,7 +12,16 @@ import java.util.Optional;
 
 public class ConfigurationDescriptor extends ComponentDescriptor {
 
+  private String extensionName;
   private ComponentDescriptor connection = null;
+
+  public String getExtensionName() {
+    return extensionName;
+  }
+
+  public void setExtensionName(String extensionName) {
+    this.extensionName = extensionName;
+  }
 
   public Optional<ComponentDescriptor> getConnection() {
     return ofNullable(connection);

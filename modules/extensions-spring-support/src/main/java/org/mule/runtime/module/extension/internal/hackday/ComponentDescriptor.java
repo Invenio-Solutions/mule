@@ -11,15 +11,15 @@ import java.util.Map;
 
 public class ComponentDescriptor {
 
-  private String name;
+  private String componentName;
   private Map<String, Object> parameters = new LinkedHashMap<>();
 
-  public String getName() {
-    return name;
+  public String getComponentName() {
+    return componentName;
   }
 
-  public void setName(String name) {
-    this.name = name;
+  public void setComponentName(String componentName) {
+    this.componentName = componentName;
   }
 
   public Map<String, Object> getParameters() {

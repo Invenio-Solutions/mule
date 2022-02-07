@@ -59,9 +59,6 @@ public class ConnectionProviderObjectFactory extends AbstractExtensionObjectFact
   @Inject
   private ConfigurationProperties properties;
 
-  @Inject
-  private MuleContext muleContext;
-
   public ConnectionProviderObjectFactory(ConnectionProviderModel providerModel,
                                          ExtensionModel extensionModel,
                                          AuthorizationCodeOAuthHandler authCodeHandler,
