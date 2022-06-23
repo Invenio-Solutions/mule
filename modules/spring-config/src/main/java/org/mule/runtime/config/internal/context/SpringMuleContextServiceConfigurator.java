@@ -13,11 +13,13 @@ import static org.mule.runtime.api.store.ObjectStoreManager.BASE_IN_MEMORY_OBJEC
 import static org.mule.runtime.api.store.ObjectStoreManager.BASE_PERSISTENT_OBJECT_STORE_KEY;
 import static org.mule.runtime.api.value.ValueProviderService.VALUE_PROVIDER_SERVICE_KEY;
 import static org.mule.runtime.config.api.LazyComponentInitializer.LAZY_COMPONENT_INITIALIZER_SERVICE_KEY;
+import static org.mule.runtime.core.api.config.MuleDeploymentProperties.MULE_ADD_ARTIFACT_AST_TO_REGISTRY_DEPLOYMENT_PROPERTY;
 import static org.mule.runtime.core.api.config.MuleProperties.COMPATIBILITY_PLUGIN_INSTALLED;
 import static org.mule.runtime.core.api.config.MuleProperties.LOCAL_OBJECT_LOCK_FACTORY;
 import static org.mule.runtime.core.api.config.MuleProperties.LOCAL_OBJECT_STORE_MANAGER;
 import static org.mule.runtime.core.api.config.MuleProperties.MULE_MEMORY_MANAGEMENT_SERVICE;
 import static org.mule.runtime.core.api.config.MuleProperties.MULE_PROFILING_SERVICE_KEY;
+import static org.mule.runtime.core.api.config.MuleProperties.OBJECT_ARTIFACT_AST;
 import static org.mule.runtime.core.api.config.MuleProperties.OBJECT_CLUSTER_SERVICE;
 import static org.mule.runtime.core.api.config.MuleProperties.OBJECT_COMPONENT_INITIAL_STATE_MANAGER;
 import static org.mule.runtime.core.api.config.MuleProperties.OBJECT_CONFIGURATION_PROPERTIES;
@@ -71,6 +73,7 @@ import org.mule.runtime.api.memory.management.MemoryManagementService;
 import org.mule.runtime.api.notification.NotificationListenerRegistry;
 import org.mule.runtime.api.service.Service;
 import org.mule.runtime.api.util.ResourceLocator;
+import org.mule.runtime.ast.api.ArtifactAst;
 import org.mule.runtime.config.internal.dsl.model.config.DefaultComponentInitialStateManager;
 import org.mule.runtime.config.internal.factories.ConstantFactoryBean;
 import org.mule.runtime.config.internal.factories.ExtensionManagerFactoryBean;
@@ -128,6 +131,7 @@ import javax.inject.Inject;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
@@ -144,6 +148,7 @@ public class SpringMuleContextServiceConfigurator extends AbstractSpringMuleCont
 
   private final MuleContextWithRegistry muleContext;
   private final ArtifactType artifactType;
+  private final ArtifactAst artifactAst;
   private final OptionalObjectsController optionalObjectsController;
   private final ResourceLocator resourceLocator;
 
@@ -225,6 +230,7 @@ public class SpringMuleContextServiceConfigurator extends AbstractSpringMuleCont
                                               ConfigurationProperties configurationProperties,
                                               Map<String, String> artifactProperties,
                                               ArtifactType artifactType,
+                                              ArtifactAst artifactAst,
                                               OptionalObjectsController optionalObjectsController,
                                               BeanDefinitionRegistry beanDefinitionRegistry,
                                               Registry serviceLocator,
@@ -237,6 +243,7 @@ public class SpringMuleContextServiceConfigurator extends AbstractSpringMuleCont
     this.configurationProperties = configurationProperties;
     this.artifactProperties = artifactProperties;
     this.artifactType = artifactType;
+    this.artifactAst = artifactAst;
     this.optionalObjectsController = optionalObjectsController;
     this.resourceLocator = resourceLocator;
     this.memoryManagementService = memoryManagementService;
@@ -273,6 +280,10 @@ public class SpringMuleContextServiceConfigurator extends AbstractSpringMuleCont
     registerConstantBeanDefinition(CORE_FUNCTIONS_PROVIDER_REGISTRY_KEY, coreFunctionsProvider);
 
     artifactProperties.forEach((k, v) -> registerConstantBeanDefinition(k, v));
+
+    if (Boolean.valueOf(artifactProperties.getOrDefault(MULE_ADD_ARTIFACT_AST_TO_REGISTRY_DEPLOYMENT_PROPERTY, "false"))) {
+      registerConstantBeanDefinition(OBJECT_ARTIFACT_AST, artifactAst);
+    }
   }
 
   private void loadServiceConfigurators() {
