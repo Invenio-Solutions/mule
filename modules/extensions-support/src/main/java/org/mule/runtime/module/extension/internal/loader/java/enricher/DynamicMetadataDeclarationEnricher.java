@@ -27,7 +27,6 @@ import org.mule.runtime.api.metadata.resolving.InputTypeResolver;
 import org.mule.runtime.api.metadata.resolving.NamedTypeResolver;
 import org.mule.runtime.api.metadata.resolving.OutputTypeResolver;
 import org.mule.runtime.api.metadata.resolving.PartialTypeKeysResolver;
-import org.mule.runtime.api.metadata.resolving.TypeKeysResolver;
 import org.mule.runtime.api.util.collection.Collectors;
 import org.mule.runtime.core.internal.metadata.DefaultMetadataResolverFactory;
 import org.mule.runtime.core.internal.metadata.NullMetadataResolverFactory;
@@ -40,7 +39,6 @@ import org.mule.runtime.extension.api.exception.IllegalParameterModelDefinitionE
 import org.mule.runtime.extension.api.loader.DeclarationEnricher;
 import org.mule.runtime.extension.api.loader.ExtensionLoadingContext;
 import org.mule.runtime.extension.api.metadata.MetadataResolverFactory;
-import org.mule.runtime.extension.api.metadata.NullMetadataResolver;
 import org.mule.runtime.extension.api.property.MetadataKeyIdModelProperty;
 import org.mule.runtime.extension.api.property.MetadataKeyPartModelProperty;
 import org.mule.runtime.extension.api.property.TypeResolversInformationModelProperty;
@@ -59,8 +57,11 @@ import org.mule.runtime.module.extension.internal.metadata.MetadataScopeAdapter;
 import org.mule.runtime.module.extension.internal.metadata.MuleAttributesTypeResolverAdapter;
 import org.mule.runtime.module.extension.internal.metadata.MuleInputTypeResolverAdapter;
 import org.mule.runtime.module.extension.internal.metadata.MuleOutputTypeResolverAdapter;
+import org.mule.runtime.module.extension.internal.metadata.MuleTypeKeysResolverAdapter;
 import org.mule.runtime.module.extension.internal.metadata.QueryMetadataResolverFactory;
 import org.mule.runtime.module.extension.internal.metadata.SdkOutputTypeResolverAdapter;
+import org.mule.sdk.api.metadata.NullMetadataResolver;
+import org.mule.sdk.api.metadata.resolving.TypeKeysResolver;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -171,7 +172,7 @@ public class DynamicMetadataDeclarationEnricher implements DeclarationEnricher {
       final String categoryName = getCategoryName(metadataScope);
       declareResolversInformation(declaration, metadataScope, categoryName);
       declareMetadataResolverFactory(declaration, metadataScope, categoryName);
-      enrichMetadataKeyParameters(declaration, metadataScope.getKeysResolver().get());
+      enrichMetadataKeyParameters(declaration, metadataScope.getKeysResolver());
     }
 
     private void enrichMetadataKeyParameters(ParameterizedDeclaration<?> declaration,
@@ -198,7 +199,7 @@ public class DynamicMetadataDeclarationEnricher implements DeclarationEnricher {
                                                e -> e.getValue().get().getResolverName()));
         String outputResolver = metadataScope.getOutputResolver().getResolverName();
         String attributesResolver = metadataScope.getAttributesResolver().getResolverName();
-        TypeKeysResolver typeKeysResolver = metadataScope.getKeysResolver().get();
+        TypeKeysResolver typeKeysResolver = metadataScope.getKeysResolver();
         String keysResolver = typeKeysResolver.getResolverName();
 
         // TODO MULE-15638 - Once Metadata API 2.0 is implemented we will know better if the resolver requires or not a connection
@@ -264,8 +265,8 @@ public class DynamicMetadataDeclarationEnricher implements DeclarationEnricher {
         }
 
         @Override
-        public Supplier<? extends TypeKeysResolver> getKeysResolver() {
-          return () -> nullMetadataResolver;
+        public TypeKeysResolver getKeysResolver() {
+          return nullMetadataResolver;
         }
 
         @Override
@@ -313,7 +314,10 @@ public class DynamicMetadataDeclarationEnricher implements DeclarationEnricher {
           .map(entry -> inputTypeResolversSupplier.put(entry.getKey(),
                                                        () -> MuleInputTypeResolverAdapter.from(entry.getValue().get())));
 
-      return scope.isCustomScope() ? new DefaultMetadataResolverFactory(scope.getKeysResolver(), inputTypeResolversSupplier,
+      Supplier<org.mule.runtime.api.metadata.resolving.TypeKeysResolver> typeKeysResolverSupplier =
+          () -> MuleTypeKeysResolverAdapter.from(scope.getKeysResolver());
+
+      return scope.isCustomScope() ? new DefaultMetadataResolverFactory(typeKeysResolverSupplier, inputTypeResolversSupplier,
                                                                         outputTypeResolverSupplier,
                                                                         attributesTypeResolverSupplier)
           : new NullMetadataResolverFactory();
@@ -406,7 +410,7 @@ public class DynamicMetadataDeclarationEnricher implements DeclarationEnricher {
     }
 
     private String getCategoryName(MetadataScopeAdapter metadataScopeAdapter) {
-      NamedTypeResolver resolver = metadataScopeAdapter.getKeysResolver().get();
+      NamedTypeResolver resolver = metadataScopeAdapter.getKeysResolver();
       if (resolver instanceof NullMetadataResolver) {
         if (metadataScopeAdapter.hasInputResolvers()) {
           org.mule.sdk.api.metadata.resolving.InputTypeResolver inputTypeResolver =

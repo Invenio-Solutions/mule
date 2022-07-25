@@ -7,16 +7,14 @@
 package org.mule.runtime.module.extension.internal.metadata;
 
 import static java.util.Collections.emptyList;
-import static org.mule.metadata.api.utils.MetadataTypeUtils.isEnum;
 import static org.mule.runtime.module.extension.internal.loader.utils.JavaInputResolverModelParserUtils.parseInputResolversModelParser;
+import static org.mule.runtime.module.extension.internal.loader.utils.JavaMetadataKeyIdModelParserUtils.parseKeyIdResolverModelParser;
 import static org.mule.runtime.module.extension.internal.loader.utils.JavaOutputResolverModelParserUtils.hasOutputResolverAnnotation;
 import static org.mule.runtime.module.extension.internal.loader.utils.JavaOutputResolverModelParserUtils.parseAttributesResolverModelParser;
 import static org.mule.runtime.module.extension.internal.loader.utils.JavaOutputResolverModelParserUtils.parseOutputResolverModelParser;
 import static org.mule.runtime.module.extension.internal.util.IntrospectionUtils.getAnnotatedElement;
 import static org.mule.runtime.module.extension.internal.util.IntrospectionUtils.getAnnotation;
 
-import org.mule.metadata.api.annotation.EnumAnnotation;
-import org.mule.metadata.api.model.BooleanType;
 import org.mule.metadata.api.model.MetadataType;
 import org.mule.runtime.api.meta.model.ComponentModel;
 import org.mule.runtime.api.meta.model.declaration.fluent.ComponentDeclaration;
@@ -38,6 +36,7 @@ import org.mule.runtime.module.extension.internal.loader.annotations.CustomDefin
 import org.mule.runtime.module.extension.internal.loader.java.property.ParameterGroupModelProperty;
 import org.mule.runtime.module.extension.internal.loader.parser.java.JavaAttributesResolverModelParser;
 import org.mule.runtime.module.extension.internal.loader.parser.java.JavaInputResolverModelParser;
+import org.mule.runtime.module.extension.internal.loader.parser.java.JavaKeyIdResolverModelParser;
 import org.mule.runtime.module.extension.internal.loader.parser.java.JavaOutputResolverModelParser;
 import org.mule.sdk.api.metadata.resolving.NamedTypeResolver;
 
@@ -58,8 +57,8 @@ import org.apache.commons.lang3.tuple.Pair;
  */
 public final class DefaultMetadataScopeAdapter implements MetadataScopeAdapter {
 
-  private Supplier<NullMetadataResolver> nullMetadataResolverSupplier = new NullMetadataResolverSupplier();
-  private Supplier<? extends TypeKeysResolver> keysResolver = nullMetadataResolverSupplier;
+  private JavaKeyIdResolverModelParser javaKeyIdResolverModelParser =
+      new JavaKeyIdResolverModelParser(null, null, org.mule.sdk.api.metadata.NullMetadataResolver.class, false);
 
   private JavaOutputResolverModelParser javaOutputResolverModelParser =
       new JavaOutputResolverModelParser(org.mule.sdk.api.metadata.NullMetadataResolver.class, false);
@@ -70,8 +69,6 @@ public final class DefaultMetadataScopeAdapter implements MetadataScopeAdapter {
   private List<JavaInputResolverModelParser> javaInputResolverModelParsers = emptyList();
 
   public DefaultMetadataScopeAdapter(Type extensionElement, MethodElement operation, OperationDeclaration declaration) {
-    Optional<Pair<MetadataKeyId, MetadataType>> keyId = locateMetadataKeyId(declaration);
-
     javaInputResolverModelParsers = parseInputResolversModelParser(operation);
 
     if (hasOutputResolverAnnotation(operation) || !javaInputResolverModelParsers.isEmpty()) {
@@ -82,10 +79,10 @@ public final class DefaultMetadataScopeAdapter implements MetadataScopeAdapter {
         javaAttributesResolverModelParser = parseAttributesResolverModelParser(operation);
       }
 
-      keyId.ifPresent(pair -> keysResolver = getKeysResolver(pair.getRight(), pair.getLeft(),
-                                                             () -> getCategoryName(javaOutputResolverModelParser,
-                                                                                   javaAttributesResolverModelParser,
-                                                                                   javaInputResolverModelParsers)));
+      Supplier<String> categoryName = () -> getCategoryName(javaOutputResolverModelParser,
+                                                            javaAttributesResolverModelParser, javaInputResolverModelParsers);
+
+      javaKeyIdResolverModelParser = parseKeyIdResolverModelParser(categoryName, operation);
     } else {
       initializeFromClass(extensionElement, operation.getEnclosingType(), declaration);
     }
@@ -109,57 +106,14 @@ public final class DefaultMetadataScopeAdapter implements MetadataScopeAdapter {
       scope = scope != null ? scope : getAnnotation(extensionClass.get(), MetadataScope.class);
 
       if (scope != null && !hasCustomStaticType(declaration.getOutput())) {
-        this.keysResolver = ResolverSupplier.of(scope.keysResolver());
+        this.javaKeyIdResolverModelParser =
+            parseKeyIdResolverModelParser(extensionType, annotatedType);
         this.javaOutputResolverModelParser =
             parseOutputResolverModelParser(extensionType, annotatedType);
         this.javaAttributesResolverModelParser =
             parseAttributesResolverModelParser(extensionType, annotatedType);
       }
     }
-  }
-
-  private Optional<Pair<MetadataKeyId, MetadataType>> locateMetadataKeyId(
-                                                                          ComponentDeclaration<? extends ComponentDeclaration> component) {
-
-    Optional<Pair<MetadataKeyId, MetadataType>> keyId = component.getAllParameters().stream()
-        .map((declaration) -> new ImmutablePair<>(declaration, getAnnotatedElement(declaration)))
-        .filter(p -> p.getRight().isPresent() && p.getRight().get().isAnnotationPresent(MetadataKeyId.class))
-        .map(p -> (Pair<MetadataKeyId, MetadataType>) new ImmutablePair<>(p.getRight().get().getAnnotation(MetadataKeyId.class),
-                                                                          p.getLeft().getType()))
-        .findFirst();
-
-    if (!keyId.isPresent()) {
-      for (ParameterGroupDeclaration group : component.getParameterGroups()) {
-        keyId = group.getModelProperty(ParameterGroupModelProperty.class)
-            .map(ParameterGroupModelProperty::getDescriptor)
-            .filter(g -> g.getAnnotatedContainer().isAnnotatedWith(MetadataKeyId.class))
-            .map(g -> new ImmutablePair<>(g.getContainer().getAnnotation(MetadataKeyId.class),
-                                          g.getType().asMetadataType()));
-
-        if (keyId.isPresent()) {
-          break;
-        }
-      }
-    }
-
-    return keyId;
-  }
-
-  private Supplier<? extends TypeKeysResolver> getKeysResolver(MetadataType metadataType, MetadataKeyId metadataKeyId,
-                                                               Supplier<String> categoryName) {
-    Supplier<? extends TypeKeysResolver> keysResolver;
-    if (metadataKeyId.value().equals(NullMetadataResolver.class)) {
-      if (metadataType instanceof BooleanType) {
-        keysResolver = () -> new BooleanKeyResolver(categoryName.get());
-      } else if (isEnum(metadataType)) {
-        keysResolver = () -> new EnumKeyResolver(metadataType.getAnnotation(EnumAnnotation.class).get(), categoryName.get());
-      } else {
-        keysResolver = nullMetadataResolverSupplier;
-      }
-    } else {
-      keysResolver = ResolverSupplier.of(metadataKeyId.value());
-    }
-    return keysResolver;
   }
 
   private String getCategoryName(JavaOutputResolverModelParser javaOutputResolverModelParser,
@@ -207,8 +161,8 @@ public final class DefaultMetadataScopeAdapter implements MetadataScopeAdapter {
     return javaAttributesResolverModelParser.hasAttributesResolver();
   }
 
-  public Supplier<? extends TypeKeysResolver> getKeysResolver() {
-    return keysResolver;
+  public org.mule.sdk.api.metadata.resolving.TypeKeysResolver getKeysResolver() {
+    return javaKeyIdResolverModelParser.getKeyResolver();
   }
 
   public Map<String, Supplier<? extends org.mule.sdk.api.metadata.resolving.InputTypeResolver>> getInputResolvers() {
